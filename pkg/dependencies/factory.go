@@ -30,6 +30,7 @@ type Dependencies struct {
 	DockerClient              *executables.Docker
 	Kubectl                   *executables.Kubectl
 	Govc                      *executables.Govc
+	Cmk                       *executables.Cmk
 	Writer                    filewriter.FileWriter
 	Kind                      *executables.Kind
 	Clusterctl                *executables.Clusterctl
@@ -163,6 +164,8 @@ func (f *Factory) WithProviderFactory(clusterConfig *v1alpha1.Cluster) *Factory 
 	switch clusterConfig.Spec.DatacenterRef.Kind {
 	case v1alpha1.VSphereDatacenterKind:
 		f.WithKubectl().WithGovc().WithWriter().WithCAPIClusterResourceSetManager()
+	case v1alpha1.CloudStackDeploymentKind:
+		f.WithKubectl().WithCmk().WithWriter().WithCAPIClusterResourceSetManager()
 	case v1alpha1.DockerDatacenterKind:
 		f.WithDocker().WithKubectl()
 	case v1alpha1.TinkerbellDatacenterKind:
@@ -179,6 +182,8 @@ func (f *Factory) WithProviderFactory(clusterConfig *v1alpha1.Cluster) *Factory 
 			DockerKubectlClient:       f.dependencies.Kubectl,
 			VSphereGovcClient:         f.dependencies.Govc,
 			VSphereKubectlClient:      f.dependencies.Kubectl,
+			CloudStackCloudMonkeyClient: f.dependencies.Cmk,
+			CloudStackKubectlClient:     f.dependencies.Kubectl,
 			TinkerbellKubectlClient:   f.dependencies.Kubectl,
 			Writer:                    f.dependencies.Writer,
 			ClusterResourceSetManager: f.dependencies.ResourceSetManager,
@@ -246,6 +251,21 @@ func (f *Factory) WithGovc() *Factory {
 		f.dependencies.Govc = f.executableBuilder.BuildGovcExecutable(f.dependencies.Writer)
 		f.dependencies.closers = append(f.dependencies.closers, f.dependencies.Govc)
 
+		return nil
+	})
+
+	return f
+}
+
+func (f *Factory) WithCmk() *Factory {
+	f.WithWriter()
+
+	f.buildSteps = append(f.buildSteps, func(ctx context.Context) error {
+		if f.dependencies.Cmk != nil {
+			return nil
+		}
+
+		f.dependencies.Cmk = f.executableBuilder.BuildCmkExecutable(f.dependencies.Writer)
 		return nil
 	})
 

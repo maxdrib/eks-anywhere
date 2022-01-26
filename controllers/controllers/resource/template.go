@@ -14,6 +14,7 @@ import (
 	"github.com/aws/eks-anywhere/pkg/awsiamauth"
 	"github.com/aws/eks-anywhere/pkg/cluster"
 	"github.com/aws/eks-anywhere/pkg/providers"
+	"github.com/aws/eks-anywhere/pkg/providers/cloudstack"
 	"github.com/aws/eks-anywhere/pkg/providers/docker"
 	"github.com/aws/eks-anywhere/pkg/providers/tinkerbell"
 	"github.com/aws/eks-anywhere/pkg/providers/vsphere"
@@ -32,6 +33,12 @@ type DockerTemplate struct {
 }
 
 type VsphereTemplate struct {
+	ResourceFetcher
+	ResourceUpdater
+	now anywhereTypes.NowFunc
+}
+
+type CloudStackTemplate struct {
 	ResourceFetcher
 	ResourceUpdater
 	now anywhereTypes.NowFunc
@@ -143,6 +150,84 @@ func (r *VsphereTemplate) TemplateResources(ctx context.Context, eksaCluster *an
 	}
 
 	return generateTemplateResources(templateBuilder, clusterSpec, workloadTemplateNames, cpOpt)
+}
+func (r *CloudStackTemplate) TemplateResources(ctx context.Context, eksaCluster *anywherev1.Cluster, clusterSpec *cluster.Spec, csdc anywherev1.CloudStackDeploymentConfig, cpCsmc, workerCsmc, etcdCsmc anywherev1.CloudStackMachineConfig) ([]*unstructured.Unstructured, error) {
+	// control plane and etcd updates are prohibited in controller so those specs should not change
+	templateBuilder := cloudstack.NewCloudStackTemplateBuilder(&csdc.Spec, &cpCsmc.Spec, &workerCsmc.Spec, &etcdCsmc.Spec, r.now)
+	clusterName := clusterSpec.ObjectMeta.Name
+
+	oldCsdc, err := r.ExistingCloudStackDeploymentConfig(ctx, eksaCluster)
+	if err != nil {
+		return nil, err
+	}
+	oldCpCsmc, err := r.ExistingCloudStackControlPlaneMachineConfig(ctx, eksaCluster)
+	if err != nil {
+		return nil, err
+	}
+	oldWorkerCsmc, err := r.ExistingCloudStackWorkerMachineConfig(ctx, eksaCluster)
+	if err != nil {
+		return nil, err
+	}
+
+	var controlPlaneTemplateName string
+	updateControlPlaneTemplate := cloudstack.AnyImmutableFieldChanged(oldCsdc, &csdc, oldCpCsmc, &cpCsmc)
+	if updateControlPlaneTemplate {
+		controlPlaneTemplateName = templateBuilder.CPMachineTemplateName(clusterName)
+	} else {
+		cp, err := r.ControlPlane(ctx, eksaCluster)
+		if err != nil {
+			return nil, err
+		}
+		controlPlaneTemplateName = cp.Spec.InfrastructureTemplate.Name
+	}
+
+	var workloadTemplateName string
+	updateWorkloadTemplate := cloudstack.AnyImmutableFieldChanged(oldCsdc, &csdc, oldWorkerCsmc, &workerCsmc)
+	if updateWorkloadTemplate {
+		workloadTemplateName = templateBuilder.WorkerMachineTemplateName(clusterName)
+	} else {
+		mcDeployment, err := r.MachineDeployment(ctx, eksaCluster)
+		if err != nil {
+			return nil, err
+		}
+		workloadTemplateName = mcDeployment.Spec.Template.Spec.InfrastructureRef.Name
+	}
+
+	var etcdTemplateName string
+	if eksaCluster.Spec.ExternalEtcdConfiguration != nil {
+		oldEtcdCsmc, err := r.ExistingCloudStackEtcdMachineConfig(ctx, eksaCluster)
+		if err != nil {
+			return nil, err
+		}
+		updateEtcdTemplate := cloudstack.AnyImmutableFieldChanged(oldCsdc, &csdc, oldEtcdCsmc, &etcdCsmc)
+		etcd, err := r.Etcd(ctx, eksaCluster)
+		if err != nil {
+			return nil, err
+		}
+		if updateEtcdTemplate {
+			etcd.SetAnnotations(map[string]string{etcdv1.UpgradeInProgressAnnotation: "true"})
+			if err := r.ApplyPatch(ctx, etcd, false); err != nil {
+				return nil, err
+			}
+			etcdTemplateName = templateBuilder.EtcdMachineTemplateName(clusterName)
+		} else {
+			etcdTemplateName = etcd.Spec.InfrastructureTemplate.Name
+		}
+	}
+
+	cpOpt := func(values map[string]interface{}) {
+		values["controlPlaneTemplateName"] = controlPlaneTemplateName
+		values["cloudstackControlPlaneSshAuthorizedKey"] = sshAuthorizedKey(cpCsmc.Spec.Users)
+		values["cloudstackEtcdSshAuthorizedKey"] = sshAuthorizedKey(etcdCsmc.Spec.Users)
+		values["etcdTemplateName"] = etcdTemplateName
+	}
+
+	workersOpt := func(values map[string]interface{}) {
+		values["workloadTemplateName"] = workloadTemplateName
+		values["cloudStackWorkerSshAuthorizedKey"] = sshAuthorizedKey(workerCsmc.Spec.Users)
+	}
+
+	return generateTemplateResources(templateBuilder, clusterSpec, cpOpt, workersOpt)
 }
 
 func (r *TinkerbellTemplate) TemplateResources(ctx context.Context, eksaCluster *anywherev1.Cluster, clusterSpec *cluster.Spec, tdc anywherev1.TinkerbellDatacenterConfig, cpTmc, etcdTmc anywherev1.TinkerbellMachineConfig, workerTmc map[string]anywherev1.TinkerbellMachineConfig) ([]*unstructured.Unstructured, error) {

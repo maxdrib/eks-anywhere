@@ -10,6 +10,7 @@ const (
 	CapiSystemNamespace                     = "capi-system"
 	CapiWebhookSystemNamespace              = "capi-webhook-system"
 	CapvSystemNamespace                     = "capv-system"
+	CapcSystemNamespace                     = "capc-system"
 	CapaSystemNamespace                     = "capa-system"
 	CertManagerNamespace                    = "cert-manager"
 	DefaultNamespace                        = "default"
@@ -28,6 +29,7 @@ const (
 	DockerProviderName     = "docker"
 	AWSProviderName        = "aws"
 	TinkerbellProviderName = "tinkerbell"
+	CloudStackProviderName = "cloudstack"
 
 	VSphereCredentialsName = "vsphere-credentials"
 	EksaLicenseName        = "eksa-license"

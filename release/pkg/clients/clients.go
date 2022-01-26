@@ -16,6 +16,13 @@ package clients
 
 import (
 	"fmt"
+<<<<<<< HEAD:release/pkg/clients/clients.go
+=======
+	"io/ioutil"
+	"net/http"
+	"os"
+	"strings"
+>>>>>>> embargo/main:release/pkg/clients.go
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -78,7 +85,7 @@ func CreateDevReleaseClients(dryRun bool) (*SourceClients, *ReleaseClients, erro
 		return nil, nil, errors.Cause(err)
 	}
 
-	// IAD session for eks-a-build-prod-pdx
+	// IAD session for eks-a-build-prod-iad
 	iadSession, err := session.NewSession(&aws.Config{
 		Region: aws.String("us-east-1"),
 	})
@@ -86,20 +93,40 @@ func CreateDevReleaseClients(dryRun bool) (*SourceClients, *ReleaseClients, erro
 		return nil, nil, errors.Cause(err)
 	}
 
+	// default aws region session to pdx unless region is pointing to iad
+	regionalSession := pdxSession
+	awsRegion := os.Getenv("AWS_REGION")
+	if awsRegion == "us-east-1" {
+		fmt.Println("Detected AWS_REGION to be us-east-1, using iad session")
+		regionalSession = iadSession
+	}
 	// S3 client and uploader
-	s3Client := s3.New(pdxSession)
-	uploader := s3manager.NewUploader(pdxSession)
+	s3Client := s3.New(regionalSession)
+	uploader := s3manager.NewUploader(regionalSession)
 
 	// Get source ECR auth config
+<<<<<<< HEAD:release/pkg/clients/clients.go
 	ecrClient := ecrsdk.New(pdxSession)
 	sourceAuthConfig, err := ecr.GetAuthConfig(ecrClient)
+=======
+	fmt.Printf("Source container registry is: %s\n", r.SourceContainerRegistry)
+	ecrClient := ecr.New(regionalSession)
+	sourceAuthConfig, err := getEcrAuthConfig(ecrClient)
+>>>>>>> embargo/main:release/pkg/clients.go
 	if err != nil {
 		return nil, nil, errors.Cause(err)
 	}
 
 	// Get release ECR Public auth config
+<<<<<<< HEAD:release/pkg/clients/clients.go
 	ecrPublicClient := ecrpublicsdk.New(iadSession)
 	releaseAuthConfig, err := ecrpublic.GetAuthConfig(ecrPublicClient)
+=======
+	// ECR-public is always on iad
+	fmt.Printf("Release container registry is: %s\n", r.ReleaseContainerRegistry)
+	ecrPublicClient := ecrpublic.New(iadSession)
+	releaseAuthConfig, err := getEcrPublicAuthConfig(ecrPublicClient)
+>>>>>>> embargo/main:release/pkg/clients.go
 	if err != nil {
 		return nil, nil, errors.Cause(err)
 	}
