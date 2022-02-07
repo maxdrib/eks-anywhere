@@ -464,71 +464,12 @@ func userAgent(eksAComponent, version string) string {
 
 func (vb *VersionsBundle) KubeDistroImages() []v1alpha1.Image {
 	var images []v1alpha1.Image
-<<<<<<< HEAD
 	images = append(images, vb.KubeDistro.EtcdImage)
 	images = append(images, vb.KubeDistro.ExternalAttacher)
 	images = append(images, vb.KubeDistro.ExternalProvisioner)
 	images = append(images, vb.KubeDistro.LivenessProbe)
 	images = append(images, vb.KubeDistro.NodeDriverRegistrar)
 	images = append(images, vb.KubeDistro.Pause)
-=======
-	if vb.VersionsBundle != nil {
-		images = append(images, vb.Bootstrap.Controller)
-		images = append(images, vb.Bootstrap.KubeProxy)
-
-		images = append(images, vb.BottleRocketBootstrap.Bootstrap)
-		images = append(images, vb.BottleRocketAdmin.Admin)
-
-		images = append(images, vb.CertManager.Acmesolver)
-		images = append(images, vb.CertManager.Cainjector)
-		images = append(images, vb.CertManager.Controller)
-		images = append(images, vb.CertManager.Webhook)
-
-		images = append(images, vb.Cilium.Cilium)
-		images = append(images, vb.Cilium.Operator)
-
-		images = append(images, vb.ClusterAPI.Controller)
-		images = append(images, vb.ClusterAPI.KubeProxy)
-
-		images = append(images, vb.ControlPlane.Controller)
-		images = append(images, vb.ControlPlane.KubeProxy)
-
-		images = append(images, vb.EksD.KindNode)
-		images = append(images, vb.Eksa.CliTools)
-		images = append(images, vb.Eksa.ClusterController)
-
-		images = append(images, vb.Flux.HelmController)
-		images = append(images, vb.Flux.KustomizeController)
-		images = append(images, vb.Flux.NotificationController)
-		images = append(images, vb.Flux.SourceController)
-
-		images = append(images, vb.ExternalEtcdBootstrap.Controller)
-		images = append(images, vb.ExternalEtcdBootstrap.KubeProxy)
-
-		images = append(images, vb.ExternalEtcdController.Controller)
-		images = append(images, vb.ExternalEtcdController.KubeProxy)
-	}
-
-	if vb.KubeDistro != nil {
-		images = append(images, vb.KubeDistro.EtcdImage)
-		images = append(images, vb.KubeDistro.ExternalAttacher)
-		images = append(images, vb.KubeDistro.ExternalProvisioner)
-		images = append(images, vb.KubeDistro.LivenessProbe)
-		images = append(images, vb.KubeDistro.NodeDriverRegistrar)
-		images = append(images, vb.KubeDistro.Pause)
-
-	}
-	return images
-}
-
-func (vb *VersionsBundle) VsphereImages() []v1alpha1.Image {
-	var images []v1alpha1.Image
-	images = append(images, vb.VSphere.ClusterAPIController)
-	images = append(images, vb.VSphere.Driver)
-	images = append(images, vb.VSphere.KubeProxy)
-	images = append(images, vb.VSphere.KubeVip)
-	images = append(images, vb.VSphere.Manager)
-	images = append(images, vb.VSphere.Syncer)
 
 	return images
 }
@@ -537,15 +478,6 @@ func (vb *VersionsBundle) CloudStackImages() []v1alpha1.Image {
 	var images []v1alpha1.Image
 	images = append(images, vb.CloudStack.KubeProxy)
 	images = append(images, vb.CloudStack.Manager)
-
-	return images
-}
-
-func (vb *VersionsBundle) DockerImages() []v1alpha1.Image {
-	var images []v1alpha1.Image
-	images = append(images, vb.Docker.KubeProxy)
-	images = append(images, vb.Docker.Manager)
->>>>>>> embargo/main
 
 	return images
 }
@@ -566,78 +498,7 @@ func (vb *VersionsBundle) Ovas() []v1alpha1.Archive {
 }
 
 func (vb *VersionsBundle) Manifests() map[string][]v1alpha1.Manifest {
-<<<<<<< HEAD
 	manifests := vb.VersionsBundle.Manifests()
-=======
-	manifests := map[string][]v1alpha1.Manifest{}
-
-	// CAPA manifests
-	manifests["cluster-api-provider-aws"] = []v1alpha1.Manifest{
-		vb.Aws.Components,
-		vb.Aws.ClusterTemplate,
-		vb.Aws.Metadata,
-	}
-
-	// Core CAPI manifests
-	manifests["core-cluster-api"] = []v1alpha1.Manifest{
-		vb.ClusterAPI.Components,
-		vb.ClusterAPI.Metadata,
-	}
-
-	// CAPI Kubeadm bootstrap manifests
-	manifests["capi-kubeadm-bootstrap"] = []v1alpha1.Manifest{
-		vb.Bootstrap.Components,
-		vb.Bootstrap.Metadata,
-	}
-
-	// CAPI Kubeadm Controlplane manifests
-	manifests["capi-kubeadm-control-plane"] = []v1alpha1.Manifest{
-		vb.ControlPlane.Components,
-		vb.ControlPlane.Metadata,
-	}
-
-	// CAPD manifests
-	manifests["cluster-api-provider-docker"] = []v1alpha1.Manifest{
-		vb.Docker.Components,
-		vb.Docker.ClusterTemplate,
-		vb.Docker.Metadata,
-	}
-
-	// CAPV manifests
-	manifests["cluster-api-provider-vsphere"] = []v1alpha1.Manifest{
-		vb.VSphere.Components,
-		vb.VSphere.ClusterTemplate,
-		vb.VSphere.Metadata,
-	}
-
-	// CAPC manifests
-	manifests["cluster-api-provider-cloudstack"] = []v1alpha1.Manifest{
-		vb.CloudStack.Components,
-		vb.CloudStack.ClusterTemplate,
-		vb.CloudStack.Metadata,
-	}
-
-	// Cilium manifest
-	manifests["cilium"] = []v1alpha1.Manifest{vb.Cilium.Manifest}
-
-	// Kindnetd manifest
-	manifests["kindnetd"] = []v1alpha1.Manifest{vb.Kindnetd.Manifest}
-
-	// EKS Anywhere CRD manifest
-	manifests["eks-anywhere-cluster-controller"] = []v1alpha1.Manifest{vb.Eksa.Components}
-
-	// Etcdadm bootstrap provider manifests
-	manifests["etcdadm-bootstrap-provider"] = []v1alpha1.Manifest{
-		vb.ExternalEtcdBootstrap.Components,
-		vb.ExternalEtcdBootstrap.Metadata,
-	}
-
-	// Etcdadm controller manifests
-	manifests["etcdadm-controller"] = []v1alpha1.Manifest{
-		vb.ExternalEtcdController.Components,
-		vb.ExternalEtcdController.Metadata,
-	}
->>>>>>> embargo/main
 
 	// EKS Distro release manifest
 	manifests["eks-distro"] = []v1alpha1.Manifest{{URI: vb.EksD.EksDReleaseUrl}}

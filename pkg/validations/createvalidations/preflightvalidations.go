@@ -41,7 +41,7 @@ func (u *CreateValidations) PreflightValidations(ctx context.Context) (err error
 			validations.ValidationResult{
 				Name:        "validate taints support",
 				Remediation: "",
-				Err:         ValidateTaintsSupport(ctx, u.Opts.Spec),
+				Err:         ValidateTaintsSupport(u.Opts.Spec),
 			},
 			validations.ValidationResult{
 				Name:        "validate gitops",

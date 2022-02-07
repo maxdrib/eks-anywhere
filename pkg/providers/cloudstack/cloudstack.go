@@ -6,9 +6,11 @@ import (
 	_ "embed"
 	"errors"
 	"fmt"
+	etcdv1 "github.com/mrajashree/etcdadm-controller/api/v1beta1"
 	"net"
 	"net/url"
 	"os"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	controlplanev1 "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1beta1"
 	"strconv"
 	"strings"
@@ -18,11 +20,6 @@ import (
 	"golang.org/x/crypto/ssh"
 
 	"github.com/aws/eks-anywhere/pkg/crypto"
-
-	etcdv1alpha3 "github.com/mrajashree/etcdadm-controller/api/v1alpha3"
-	corev1 "k8s.io/api/core/v1"
-	"sigs.k8s.io/cluster-api/api/v1alpha3"
-	kubeadmnv1alpha3 "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1alpha3"
 
 	"github.com/aws/eks-anywhere/pkg/api/v1alpha1"
 	"github.com/aws/eks-anywhere/pkg/bootstrapper"
@@ -39,6 +36,8 @@ import (
 	"github.com/aws/eks-anywhere/pkg/templater"
 	"github.com/aws/eks-anywhere/pkg/types"
 	releasev1alpha1 "github.com/aws/eks-anywhere/release/api/v1alpha1"
+	etcdv1alpha3 "github.com/mrajashree/etcdadm-controller/api/v1alpha3"
+	corev1 "k8s.io/api/core/v1"
 )
 
 const (
@@ -126,8 +125,8 @@ type ProviderKubectlClient interface {
 	GetEksaCloudStackDeploymentConfig(ctx context.Context, cloudstackDatacenterConfigName string, kubeconfigFile string, namespace string) (*v1alpha1.CloudStackDeploymentConfig, error)
 	GetEksaCloudStackMachineConfig(ctx context.Context, cloudstackMachineConfigName string, kubeconfigFile string, namespace string) (*v1alpha1.CloudStackMachineConfig, error)
 	GetKubeadmControlPlane(ctx context.Context, cluster *types.Cluster, clusterName string, opts ...executables.KubectlOpt) (*controlplanev1.KubeadmControlPlane, error)
-	GetMachineDeployment(ctx context.Context, cluster *types.Cluster, clusterName string, opts ...executables.KubectlOpt) (*v1alpha3.MachineDeployment, error)
-	GetEtcdadmCluster(ctx context.Context, cluster *types.Cluster, clusterName string, opts ...executables.KubectlOpt) (*etcdv1alpha3.EtcdadmCluster, error)
+	GetMachineDeployment(ctx context.Context, cluster *types.Cluster, workerNodeGroupName string, opts ...executables.KubectlOpt) (*clusterv1.MachineDeployment, error)
+	GetEtcdadmCluster(ctx context.Context, cluster *types.Cluster, clusterName string, opts ...executables.KubectlOpt) (*etcdv1.EtcdadmCluster, error)
 	GetSecret(ctx context.Context, secretObjectName string, opts ...executables.KubectlOpt) (*corev1.Secret, error)
 	UpdateAnnotation(ctx context.Context, resourceType, objectName string, annotations map[string]string, opts ...executables.KubectlOpt) error
 	SearchCloudStackMachineConfig(ctx context.Context, name string, kubeconfigFile string, namespace string) ([]*v1alpha1.CloudStackMachineConfig, error)
@@ -156,8 +155,9 @@ func NewProvider(deploymentConfig *v1alpha1.CloudStackDeploymentConfig, machineC
 }
 
 func NewProviderCustomNet(deploymentConfig *v1alpha1.CloudStackDeploymentConfig, machineConfigs map[string]*v1alpha1.CloudStackMachineConfig, clusterConfig *v1alpha1.Cluster, providerCloudMonkeyClient ProviderCloudMonkeyClient, providerKubectlClient ProviderKubectlClient, writer filewriter.FileWriter, netClient networkutils.NetClient, now types.NowFunc, skipIpCheck bool, resourceSetManager ClusterResourceSetManager) *cloudstackProvider {
-	var controlPlaneMachineSpec, workerNodeGroupMachineSpec, etcdMachineSpec *v1alpha1.CloudStackMachineConfigSpec
+	var controlPlaneMachineSpec, etcdMachineSpec *v1alpha1.CloudStackMachineConfigSpec
 	var controlPlaneTemplateFactory, workerNodeGroupTemplateFactory, etcdTemplateFactory *templates.Factory
+	workerNodeGroupMachineSpecs := make(map[string]v1alpha1.CloudStackMachineConfigSpec, len(machineConfigs))
 	if clusterConfig.Spec.ControlPlaneConfiguration.MachineGroupRef != nil && machineConfigs[clusterConfig.Spec.ControlPlaneConfiguration.MachineGroupRef.Name] != nil {
 		controlPlaneMachineSpec = &machineConfigs[clusterConfig.Spec.ControlPlaneConfiguration.MachineGroupRef.Name].Spec
 		controlPlaneTemplateFactory = templates.NewFactory(
@@ -169,7 +169,6 @@ func NewProviderCustomNet(deploymentConfig *v1alpha1.CloudStackDeploymentConfig,
 		)
 	}
 	if len(clusterConfig.Spec.WorkerNodeGroupConfigurations) > 0 && clusterConfig.Spec.WorkerNodeGroupConfigurations[0].MachineGroupRef != nil && machineConfigs[clusterConfig.Spec.WorkerNodeGroupConfigurations[0].MachineGroupRef.Name] != nil {
-		workerNodeGroupMachineSpec = &machineConfigs[clusterConfig.Spec.WorkerNodeGroupConfigurations[0].MachineGroupRef.Name].Spec
 		workerNodeGroupTemplateFactory = templates.NewFactory(
 			providerCloudMonkeyClient,
 			deploymentConfig.Spec.Network,
@@ -205,7 +204,7 @@ func NewProviderCustomNet(deploymentConfig *v1alpha1.CloudStackDeploymentConfig,
 		templateBuilder: &CloudStackTemplateBuilder{
 			deploymentConfigSpec:       &deploymentConfig.Spec,
 			controlPlaneMachineSpec:    controlPlaneMachineSpec,
-			workerNodeGroupMachineSpec: workerNodeGroupMachineSpec,
+			workerNodeGroupMachineSpecs: workerNodeGroupMachineSpecs,
 			etcdMachineSpec:            etcdMachineSpec,
 			now:                        now,
 		},
@@ -849,11 +848,11 @@ func AnyImmutableFieldChanged(oldCsdc, newCsdc *v1alpha1.CloudStackDeploymentCon
 	return false
 }
 
-func NewCloudStackTemplateBuilder(cloudStackDeploymentConfigSpecSpec *v1alpha1.CloudStackDeploymentConfigSpec, controlPlaneMachineSpec, workerNodeGroupMachineSpec, etcdMachineSpec *v1alpha1.CloudStackMachineConfigSpec, now types.NowFunc, fromController bool) providers.TemplateBuilder {
+func NewCloudStackTemplateBuilder(cloudStackDeploymentConfigSpecSpec *v1alpha1.CloudStackDeploymentConfigSpec, controlPlaneMachineSpec, etcdMachineSpec *v1alpha1.CloudStackMachineConfigSpec, workerNodeGroupMachineSpecs map[string]v1alpha1.CloudStackMachineConfigSpec, now types.NowFunc, fromController bool) providers.TemplateBuilder {
 	return &CloudStackTemplateBuilder{
 		deploymentConfigSpec:       cloudStackDeploymentConfigSpecSpec,
 		controlPlaneMachineSpec:    controlPlaneMachineSpec,
-		workerNodeGroupMachineSpec: workerNodeGroupMachineSpec,
+		workerNodeGroupMachineSpecs: workerNodeGroupMachineSpecs,
 		etcdMachineSpec:            etcdMachineSpec,
 		now:                        now,
 		fromController:				fromController,
@@ -863,15 +862,15 @@ func NewCloudStackTemplateBuilder(cloudStackDeploymentConfigSpecSpec *v1alpha1.C
 type CloudStackTemplateBuilder struct {
 	deploymentConfigSpec       *v1alpha1.CloudStackDeploymentConfigSpec
 	controlPlaneMachineSpec    *v1alpha1.CloudStackMachineConfigSpec
-	workerNodeGroupMachineSpec *v1alpha1.CloudStackMachineConfigSpec
+	workerNodeGroupMachineSpecs map[string]v1alpha1.CloudStackMachineConfigSpec
 	etcdMachineSpec            *v1alpha1.CloudStackMachineConfigSpec
 	now                        types.NowFunc
 	fromController              bool
 }
 
-func (vs *CloudStackTemplateBuilder) WorkerMachineTemplateName(clusterName string) string {
+func (vs *CloudStackTemplateBuilder) WorkerMachineTemplateName(clusterName string, workerNodeGroupName string) string {
 	t := vs.now().UnixNano() / int64(time.Millisecond)
-	return fmt.Sprintf("%s-worker-node-template-%d", clusterName, t)
+	return fmt.Sprintf("%s-%s-%d", clusterName, workerNodeGroupName, t)
 }
 
 func (vs *CloudStackTemplateBuilder) CPMachineTemplateName(clusterName string) string {
@@ -904,8 +903,9 @@ func (vs *CloudStackTemplateBuilder) GenerateCAPISpecControlPlane(clusterSpec *c
 }
 
 func (vs *CloudStackTemplateBuilder) GenerateCAPISpecWorkers(clusterSpec *cluster.Spec, templateNames map[string]string) (content []byte, err error) {
+	workerSpecs := make([][]byte, 0, len(clusterSpec.Spec.WorkerNodeGroupConfigurations))
 	for _, workerNodeGroupConfiguration := range clusterSpec.Spec.WorkerNodeGroupConfigurations {
-		values := buildTemplateMapMD(clusterSpec, *vs.datacenterSpec, vs.workerNodeGroupMachineSpecs[workerNodeGroupConfiguration.MachineGroupRef.Name], workerNodeGroupConfiguration)
+		values := buildTemplateMapMD(clusterSpec, *vs.deploymentConfigSpec, vs.workerNodeGroupMachineSpecs[workerNodeGroupConfiguration.MachineGroupRef.Name], workerNodeGroupConfiguration)
 		_, ok := templateNames[workerNodeGroupConfiguration.Name]
 		if templateNames != nil && ok {
 			values["workloadTemplateName"] = templateNames[workerNodeGroupConfiguration.Name]
@@ -1095,11 +1095,6 @@ func (p *cloudstackProvider) generateCAPISpecForUpgrade(ctx context.Context, boo
 	if err != nil {
 		return nil, nil, err
 	}
-	workerMachineConfig := p.machineConfigs[newClusterSpec.Spec.WorkerNodeGroupConfigurations[0].MachineGroupRef.Name]
-	workerCsmc, err := p.providerKubectlClient.GetEksaCloudStackMachineConfig(ctx, c.Spec.WorkerNodeGroupConfigurations[0].MachineGroupRef.Name, workloadCluster.KubeconfigFile, newClusterSpec.Namespace)
-	if err != nil {
-		return nil, nil, err
-	}
 
 	needsNewControlPlaneTemplate := NeedsNewControlPlaneTemplate(currentSpec, newClusterSpec, vdc, p.deploymentConfig, controlPlaneCsmc, controlPlaneMachineConfig)
 	if !needsNewControlPlaneTemplate {
@@ -1107,20 +1102,31 @@ func (p *cloudstackProvider) generateCAPISpecForUpgrade(ctx context.Context, boo
 		if err != nil {
 			return nil, nil, err
 		}
-		controlPlaneTemplateName = cp.Spec.InfrastructureTemplate.Name
+		controlPlaneTemplateName = cp.Spec.MachineTemplate.InfrastructureRef.Name
 	} else {
 		controlPlaneTemplateName = p.templateBuilder.CPMachineTemplateName(clusterName)
 	}
 
-	needsNewWorkloadTemplate := NeedsNewWorkloadTemplate(currentSpec, newClusterSpec, vdc, p.deploymentConfig, workerCsmc, workerMachineConfig)
-	if !needsNewWorkloadTemplate {
-		md, err := p.providerKubectlClient.GetMachineDeployment(ctx, workloadCluster, clusterName, executables.WithCluster(bootstrapCluster), executables.WithNamespace(constants.EksaSystemNamespace))
+	previousWorkerNodeGroupConfigs := buildMapForWorkerNodeGroupsByName(currentSpec.Spec.WorkerNodeGroupConfigurations)
+	workloadTemplateNames := make(map[string]string, len(newClusterSpec.Spec.WorkerNodeGroupConfigurations))
+	for _, workerNodeGroupConfiguration := range newClusterSpec.Spec.WorkerNodeGroupConfigurations {
+		needsNewWorkloadTemplate, err := p.needsNewMachineTemplate(ctx, workloadCluster, currentSpec, newClusterSpec, workerNodeGroupConfiguration, vdc, previousWorkerNodeGroupConfigs)
 		if err != nil {
 			return nil, nil, err
 		}
-		workloadTemplateName = md.Spec.Template.Spec.InfrastructureRef.Name
-	} else {
-		workloadTemplateName = p.templateBuilder.WorkerMachineTemplateName(clusterName)
+		if !needsNewWorkloadTemplate {
+			machineDeploymentName := fmt.Sprintf("%s-%s", newClusterSpec.Name, workerNodeGroupConfiguration.Name)
+			md, err := p.providerKubectlClient.GetMachineDeployment(ctx, workloadCluster, machineDeploymentName, executables.WithCluster(bootstrapCluster), executables.WithNamespace(constants.EksaSystemNamespace))
+			if err != nil {
+				return nil, nil, err
+			}
+			workloadTemplateName = md.Spec.Template.Spec.InfrastructureRef.Name
+			workloadTemplateNames[workerNodeGroupConfiguration.Name] = workloadTemplateName
+		} else {
+			workloadTemplateName = p.templateBuilder.WorkerMachineTemplateName(clusterName, workerNodeGroupConfiguration.Name)
+			workloadTemplateNames[workerNodeGroupConfiguration.Name] = workloadTemplateName
+		}
+		p.templateBuilder.workerNodeGroupMachineSpecs[workerNodeGroupConfiguration.MachineGroupRef.Name] = p.machineConfigs[workerNodeGroupConfiguration.MachineGroupRef.Name].Spec
 	}
 
 	if newClusterSpec.Spec.ExternalEtcdConfiguration != nil {
@@ -1163,15 +1169,24 @@ func (p *cloudstackProvider) generateCAPISpecForUpgrade(ctx context.Context, boo
 		return nil, nil, err
 	}
 
-	workersOpt := func(values map[string]interface{}) {
-		values["workloadTemplateName"] = workloadTemplateName
-		values["cloudstackWorkerSshAuthorizedKey"] = p.workerSshAuthKey
-	}
-	workersSpec, err = p.templateBuilder.GenerateCAPISpecWorkers(newClusterSpec, workersOpt)
+	workersSpec, err = p.templateBuilder.GenerateCAPISpecWorkers(newClusterSpec, workloadTemplateNames)
 	if err != nil {
 		return nil, nil, err
 	}
 	return controlPlaneSpec, workersSpec, nil
+}
+
+func (p *cloudstackProvider) needsNewMachineTemplate(ctx context.Context, workloadCluster *types.Cluster, currentSpec, newClusterSpec *cluster.Spec, workerNodeGroupConfiguration v1alpha1.WorkerNodeGroupConfiguration, vdc *v1alpha1.CloudStackDeploymentConfig, prevWorkerNodeGroupConfigs map[string]v1alpha1.WorkerNodeGroupConfiguration) (bool, error) {
+	workerMachineConfig := p.machineConfigs[workerNodeGroupConfiguration.MachineGroupRef.Name]
+	if _, ok := prevWorkerNodeGroupConfigs[workerNodeGroupConfiguration.Name]; ok {
+		workerVmc, err := p.providerKubectlClient.GetEksaCloudStackMachineConfig(ctx, workerNodeGroupConfiguration.MachineGroupRef.Name, workloadCluster.KubeconfigFile, newClusterSpec.Namespace)
+		if err != nil {
+			return false, err
+		}
+		needsNewWorkloadTemplate := NeedsNewWorkloadTemplate(currentSpec, newClusterSpec, vdc, p.deploymentConfig, workerVmc, workerMachineConfig)
+		return needsNewWorkloadTemplate, nil
+	}
+	return true, nil
 }
 
 func (p *cloudstackProvider) generateCAPISpecForCreate(ctx context.Context, cluster *types.Cluster, clusterSpec *cluster.Spec) (controlPlaneSpec, workersSpec []byte, err error) {
@@ -1187,11 +1202,7 @@ func (p *cloudstackProvider) generateCAPISpecForCreate(ctx context.Context, clus
 	if err != nil {
 		return nil, nil, err
 	}
-	workersOpt := func(values map[string]interface{}) {
-		values["workloadTemplateName"] = p.templateBuilder.WorkerMachineTemplateName(clusterName)
-		values["cloudstackWorkerSshAuthorizedKey"] = p.workerSshAuthKey
-	}
-	workersSpec, err = p.templateBuilder.GenerateCAPISpecWorkers(clusterSpec, workersOpt)
+	workersSpec, err = p.templateBuilder.GenerateCAPISpecWorkers(clusterSpec, nil)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1450,4 +1461,12 @@ func (p *cloudstackProvider) DeleteResources(ctx context.Context, clusterSpec *c
 
 func (p *cloudstackProvider) GenerateStorageClass() []byte {
 	panic("implement me")
+}
+
+func buildMapForWorkerNodeGroupsByName(prevWorkerNodeGroups []v1alpha1.WorkerNodeGroupConfiguration) map[string]v1alpha1.WorkerNodeGroupConfiguration {
+	prevConfigs := make(map[string]v1alpha1.WorkerNodeGroupConfiguration, len(prevWorkerNodeGroups))
+	for _, config := range prevWorkerNodeGroups {
+		prevConfigs[config.Name] = config
+	}
+	return prevConfigs
 }
