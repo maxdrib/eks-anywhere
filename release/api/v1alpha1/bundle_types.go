@@ -76,8 +76,9 @@ type VersionsBundle struct {
 	BottleRocketAdmin      BottlerocketAdminBundle     `json:"bottlerocketAdmin"`
 	ExternalEtcdBootstrap  EtcdadmBootstrapBundle      `json:"etcdadmBootstrap"`
 	ExternalEtcdController EtcdadmControllerBundle     `json:"etcdadmController"`
-	Tinkerbell             TinkerbellBundle            `json:"tinkerbell"`
-	Haproxy                HaproxyBundle               `json:"haproxy"`
+	Tinkerbell             TinkerbellBundle            `json:"tinkerbell,omitempty"`
+	Haproxy                HaproxyBundle               `json:"haproxy,omitempty"`
+	Snow                   SnowBundle                  `json:"snow,omitempty"`
 }
 
 type EksDRelease struct {
@@ -277,4 +278,12 @@ type Actions struct {
 
 type HaproxyBundle struct {
 	Image Image `json:"image"`
+}
+
+type SnowBundle struct {
+	Version    string   `json:"version"`
+	KubeProxy  Image    `json:"kubeProxy"`
+	KubeVip    Image    `json:"kubeVip"`
+	Components Manifest `json:"components"`
+	Metadata   Manifest `json:"metadata"`
 }
