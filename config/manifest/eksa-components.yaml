@@ -1930,6 +1930,42 @@ spec:
                       type: object
                     kubeVersion:
                       type: string
+                    packagecontroller:
+                      properties:
+                        packageController:
+                          properties:
+                            arch:
+                              description: Architectures of the asset
+                              items:
+                                type: string
+                              type: array
+                            description:
+                              type: string
+                            imageDigest:
+                              description: The SHA256 digest of the image manifest
+                              type: string
+                            name:
+                              description: The asset name
+                              type: string
+                            os:
+                              description: Operating system of the asset
+                              enum:
+                              - linux
+                              - darwin
+                              - windows
+                              type: string
+                            osName:
+                              description: Name of the OS like ubuntu, bottlerocket
+                              type: string
+                            uri:
+                              description: The image repository, name, and tag
+                              type: string
+                          type: object
+                        version:
+                          type: string
+                      required:
+                      - packageController
+                      type: object
                     snow:
                       properties:
                         components:
@@ -2936,6 +2972,7 @@ spec:
                   - flux
                   - kindnetd
                   - kubeVersion
+                  - packagecontroller
                   - vSphere
                   type: object
                 type: array
@@ -3236,9 +3273,23 @@ spec:
               clusterNetwork:
                 properties:
                   cni:
-                    description: CNI specifies the CNI plugin to be installed in the
-                      cluster
+                    description: Deprecated. Use CNIConfig
                     type: string
+                  cniConfig:
+                    description: CNIConfig specifies the CNI plugin to be installed
+                      in the cluster
+                    properties:
+                      cilium:
+                        properties:
+                          policyEnforcementMode:
+                            description: PolicyEnforcementMode determines communication
+                              allowed between pods. Accepted values are default, always,
+                              never.
+                            type: string
+                        type: object
+                      kindnetd:
+                        type: object
+                    type: object
                   dns:
                     properties:
                       resolvConf:
@@ -3834,6 +3885,8 @@ spec:
         type: object
     served: true
     storage: true
+    subresources:
+      status: {}
 status:
   acceptedNames:
     kind: ""
@@ -3881,8 +3934,9 @@ spec:
                 description: The AMI ID from which to create the machine instance.
                 type: string
               instanceType:
-                description: 'InstanceType is the type of instance to create. Example:
-                  m4.xlarge'
+                description: 'InstanceType is the type of instance to create. Valid
+                  values: "sbe-c.large" (default), "sbe-c.xlarge", "sbe-c.2xlarge"
+                  and "sbe-c.4xlarge".'
                 type: string
               physicalNetworkConnector:
                 description: 'PhysicalNetworkConnector is the physical network connector
@@ -3902,6 +3956,8 @@ spec:
         type: object
     served: true
     storage: true
+    subresources:
+      status: {}
 status:
   acceptedNames:
     kind: ""

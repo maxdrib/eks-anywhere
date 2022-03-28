@@ -37,8 +37,10 @@ type CloudStackDatacenterConfigSpec struct {
 }
 
 type CloudStackResourceIdentifier struct {
+	// Id of a resource in the CloudStack environment. Mutually exclusive with Name
 	// +optional
 	Id string `json:"id,omitempty"`
+	// Name of a resource in the CloudStack environment. Mutually exclusive with Id
 	// +optional
 	Name string `json:"name,omitempty"`
 }

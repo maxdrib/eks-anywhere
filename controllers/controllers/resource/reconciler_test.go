@@ -3,6 +3,7 @@ package resource_test
 import (
 	"context"
 	_ "embed"
+	"os"
 	"strings"
 	"testing"
 
@@ -25,6 +26,7 @@ import (
 	"github.com/aws/eks-anywhere/controllers/controllers/resource/mocks"
 	"github.com/aws/eks-anywhere/internal/test"
 	anywherev1 "github.com/aws/eks-anywhere/pkg/api/v1alpha1"
+	"github.com/aws/eks-anywhere/pkg/features"
 )
 
 //go:embed testdata/vsphereKubeadmcontrolplane.yaml
@@ -119,7 +121,7 @@ func TestClusterReconcilerReconcileVSphere(t *testing.T) {
 				fetcher.EXPECT().FetchCluster(gomock.Any(), gomock.Any()).Return(cluster, nil)
 
 				spec := test.NewFullClusterSpec(t, "testdata/eksa-cluster.yaml")
-				cluster.Spec = spec.Spec
+				cluster.Spec = spec.Cluster.Spec
 
 				fetcher.EXPECT().FetchAppliedSpec(ctx, gomock.Any()).Return(spec, nil)
 
@@ -245,7 +247,7 @@ func TestClusterReconcilerReconcileVSphere(t *testing.T) {
 				fetcher.EXPECT().FetchCluster(gomock.Any(), gomock.Any()).Return(cluster, nil)
 
 				spec := test.NewFullClusterSpec(t, "testdata/eksa-cluster_no_changes.yaml")
-				cluster.Spec = spec.Spec
+				cluster.Spec = spec.Cluster.Spec
 				fetcher.EXPECT().FetchAppliedSpec(ctx, gomock.Any()).Return(spec, nil)
 
 				datacenterSpec := &anywherev1.VSphereDatacenterConfig{}
@@ -356,7 +358,7 @@ func TestClusterReconcilerReconcileVSphere(t *testing.T) {
 				fetcher.EXPECT().FetchCluster(gomock.Any(), gomock.Any()).Return(cluster, nil)
 
 				spec := test.NewFullClusterSpec(t, "testdata/eksa-cluster.yaml")
-				cluster.Spec = spec.Spec
+				cluster.Spec = spec.Cluster.Spec
 
 				fetcher.EXPECT().FetchAppliedSpec(ctx, gomock.Any()).Return(spec, nil)
 
@@ -478,7 +480,7 @@ func TestClusterReconcilerReconcileVSphere(t *testing.T) {
 				fetcher.EXPECT().FetchCluster(gomock.Any(), gomock.Any()).Return(cluster, nil)
 
 				spec := test.NewFullClusterSpec(t, "testdata/eksa-cluster.yaml")
-				cluster.Spec = spec.Spec
+				cluster.Spec = spec.Cluster.Spec
 
 				fetcher.EXPECT().FetchAppliedSpec(ctx, gomock.Any()).Return(spec, nil)
 
@@ -628,7 +630,7 @@ func TestClusterReconcilerReconcileCloudStack(t *testing.T) {
 				fetcher.EXPECT().FetchCluster(gomock.Any(), gomock.Any()).Return(cluster, nil)
 
 				spec := test.NewFullClusterSpec(t, "testdata/eksa-cluster-cloudstack.yaml")
-				cluster.Spec = spec.Spec
+				cluster.Spec = spec.Cluster.Spec
 
 				fetcher.EXPECT().FetchAppliedSpec(ctx, gomock.Any()).Return(spec, nil)
 
@@ -727,7 +729,7 @@ func TestClusterReconcilerReconcileCloudStack(t *testing.T) {
 				fetcher.EXPECT().FetchCluster(gomock.Any(), gomock.Any()).Return(cluster, nil)
 
 				spec := test.NewFullClusterSpec(t, "testdata/eksa-cluster-cloudstack_no_changes.yaml")
-				cluster.Spec = spec.Spec
+				cluster.Spec = spec.Cluster.Spec
 				fetcher.EXPECT().FetchAppliedSpec(ctx, gomock.Any()).Return(spec, nil)
 
 				datacenterSpec := &anywherev1.CloudStackDatacenterConfig{}
@@ -822,7 +824,7 @@ func TestClusterReconcilerReconcileCloudStack(t *testing.T) {
 				fetcher.EXPECT().FetchCluster(gomock.Any(), gomock.Any()).Return(cluster, nil)
 
 				spec := test.NewFullClusterSpec(t, "testdata/eksa-cluster-cloudstack.yaml")
-				cluster.Spec = spec.Spec
+				cluster.Spec = spec.Cluster.Spec
 
 				fetcher.EXPECT().FetchAppliedSpec(ctx, gomock.Any()).Return(spec, nil)
 
@@ -883,6 +885,10 @@ func TestClusterReconcilerReconcileCloudStack(t *testing.T) {
 					},
 				}
 
+				oldCloudstackProviderFeatureValue := os.Getenv(features.CloudStackProviderEnvVar)
+				os.Unsetenv(features.CloudStackProviderEnvVar)
+				defer os.Setenv(features.CloudStackProviderEnvVar, oldCloudstackProviderFeatureValue)
+
 				fetcher.EXPECT().ExistingCloudStackDatacenterConfig(ctx, gomock.Any(), gomock.Any()).Return(&anywherev1.CloudStackDatacenterConfig{}, nil)
 				fetcher.EXPECT().ExistingCloudStackControlPlaneMachineConfig(ctx, gomock.Any()).Return(&anywherev1.CloudStackMachineConfig{}, nil)
 				fetcher.EXPECT().ExistingCloudStackWorkerMachineConfig(ctx, gomock.Any(), gomock.Any()).Return(&anywherev1.CloudStackMachineConfig{}, nil)
@@ -927,7 +933,7 @@ func TestClusterReconcilerReconcileCloudStack(t *testing.T) {
 				fetcher.EXPECT().FetchCluster(gomock.Any(), gomock.Any()).Return(cluster, nil)
 
 				spec := test.NewFullClusterSpec(t, "testdata/eksa-cluster-cloudstack.yaml")
-				cluster.Spec = spec.Spec
+				cluster.Spec = spec.Cluster.Spec
 
 				fetcher.EXPECT().FetchAppliedSpec(ctx, gomock.Any()).Return(spec, nil)
 
@@ -1011,6 +1017,9 @@ func TestClusterReconcilerReconcileCloudStack(t *testing.T) {
 			},
 		},
 	}
+	oldCloudstackProviderFeatureValue := os.Getenv(features.CloudStackProviderEnvVar)
+	os.Setenv(features.CloudStackProviderEnvVar, "true")
+	defer os.Setenv(features.CloudStackProviderEnvVar, oldCloudstackProviderFeatureValue)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.Background()
