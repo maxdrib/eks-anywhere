@@ -7,10 +7,10 @@ menu:
     weight: 10
 ---
 
-## Unreleased
+## [v0.7.2](https://github.com/aws/eks-anywhere/releases/tag/v0.7.2) - 2022-02-28
 
-### Added
-- Add support for Kubernetes 1.22 [#1549](https://github.com/aws/eks-anywhere/pull/1549)
+### Fixed
+- Fix issue with downloading artifacts [#1327](https://github.com/aws/eks-anywhere/pull/1327)
 
 ## [v0.7.1](https://github.com/aws/eks-anywhere/releases/tag/v0.7.1) - 2022-02-25
 

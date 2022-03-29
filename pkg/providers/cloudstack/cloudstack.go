@@ -248,7 +248,7 @@ func (p *cloudstackProvider) UpdateKubeConfig(_ *[]byte, _ string) error {
 }
 
 func (p *cloudstackProvider) BootstrapClusterOpts() ([]bootstrapper.BootstrapClusterOption, error) {
-	return common.BootstrapClusterOpts("", p.clusterConfig)
+	return common.BootstrapClusterOpts(p.datacenterConfig.Spec.ManagementApiEndpoint, p.clusterConfig)
 }
 
 func (p *cloudstackProvider) Name() string {
@@ -337,6 +337,14 @@ func (p *cloudstackProvider) validateManagementApiEndpoint(rawurl string) error 
 		return fmt.Errorf("CloudStack managementApiEndpoint is invalid: #{err}")
 	}
 	return nil
+}
+
+func getHostnameFromUrl(rawurl string) (string, error) {
+	url, err := url.Parse(rawurl)
+	if err != nil {
+		return "", fmt.Errorf("%s is not a valid url", rawurl)
+	}
+	return url.Hostname(), nil
 }
 
 func (p *cloudstackProvider) validateEnv(ctx context.Context) error {
@@ -930,7 +938,7 @@ func (p *cloudstackProvider) GenerateCAPISpecForUpgrade(ctx context.Context, boo
 func (p *cloudstackProvider) GenerateCAPISpecForCreate(ctx context.Context, cluster *types.Cluster, clusterSpec *cluster.Spec) (controlPlaneSpec, workersSpec []byte, err error) {
 	controlPlaneSpec, workersSpec, err = p.generateCAPISpecForCreate(ctx, cluster, clusterSpec)
 	if err != nil {
-		return nil, nil, fmt.Errorf("error generating cluster api Spec contents: %v", err)
+		return nil, nil, fmt.Errorf("generating cluster api Spec contents: %v", err)
 	}
 	return controlPlaneSpec, workersSpec, nil
 }
@@ -947,7 +955,7 @@ func (p *cloudstackProvider) GenerateMHC() ([]byte, error) {
 	return mhc, nil
 }
 
-func (p *cloudstackProvider) CleanupProviderInfrastructure(ctx context.Context) error {
+func (p *cloudstackProvider) CleanupProviderInfrastructure(_ context.Context) error {
 	return nil
 }
 
@@ -1112,12 +1120,4 @@ func (p *cloudstackProvider) validateMachineConfigsNameUniqueness(ctx context.Co
 
 func machineDeploymentName(clusterName, nodeGroupName string) string {
 	return fmt.Sprintf("%s-%s", clusterName, nodeGroupName)
-}
-
-func getHostnameFromUrl(rawurl string) (string, error) {
-	url, err := url.Parse(rawurl)
-	if err != nil {
-		return "", fmt.Errorf("%s is not a valid url", rawurl)
-	}
-	return url.Hostname(), nil
 }
