@@ -698,9 +698,6 @@ func TestGetInfrastructureBundleSuccess(t *testing.T) {
 					ClusterAPIController: releasev1alpha1.Image{
 						URI: "public.ecr.aws/l0g8r8j6/kubernetes-sigs/cluster-api-provider-cloudstack/release/manager:v0.1.0",
 					},
-					KubeVip: releasev1alpha1.Image{
-						URI: "public.ecr.aws/l0g8r8j6/plunder-app/kube-vip:v0.3.2-2093eaeda5a4567f0e516d652e0b25b1d7abc774",
-					},
 					Metadata: releasev1alpha1.Manifest{
 						URI: "Metadata.yaml",
 					},
@@ -821,17 +818,11 @@ func TestProviderUpgradeNeeded(t *testing.T) {
 	testCases := []struct {
 		testName               string
 		newManager, oldManager string
-		newKubeVip, oldKubeVip string
 		want                   bool
 	}{
 		{
 			testName:   "different manager",
 			newManager: "a", oldManager: "b",
-			want: true,
-		},
-		{
-			testName:   "different kubevip",
-			newKubeVip: "a", oldKubeVip: "b",
 			want: true,
 		},
 	}
@@ -841,12 +832,10 @@ func TestProviderUpgradeNeeded(t *testing.T) {
 			provider := givenProvider(t)
 			clusterSpec := test.NewClusterSpec(func(s *cluster.Spec) {
 				s.VersionsBundle.CloudStack.ClusterAPIController.ImageDigest = tt.oldManager
-				s.VersionsBundle.CloudStack.KubeVip.ImageDigest = tt.oldKubeVip
 			})
 
 			newClusterSpec := test.NewClusterSpec(func(s *cluster.Spec) {
 				s.VersionsBundle.CloudStack.ClusterAPIController.ImageDigest = tt.newManager
-				s.VersionsBundle.CloudStack.KubeVip.ImageDigest = tt.newKubeVip
 			})
 
 			g := NewWithT(t)

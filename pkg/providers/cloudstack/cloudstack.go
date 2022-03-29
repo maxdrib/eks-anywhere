@@ -1032,8 +1032,7 @@ func (p *cloudstackProvider) MachineConfigs(_ *cluster.Spec) []providers.Machine
 func (p *cloudstackProvider) UpgradeNeeded(ctx context.Context, newSpec, currentSpec *cluster.Spec) (bool, error) {
 	newV, oldV := newSpec.VersionsBundle.CloudStack, currentSpec.VersionsBundle.CloudStack
 
-	return newV.ClusterAPIController.ImageDigest != oldV.ClusterAPIController.ImageDigest ||
-		newV.KubeVip.ImageDigest != oldV.KubeVip.ImageDigest, nil
+	return newV.ClusterAPIController.ImageDigest != oldV.ClusterAPIController.ImageDigest, nil
 }
 
 func (p *cloudstackProvider) DeleteResources(ctx context.Context, clusterSpec *cluster.Spec) error {

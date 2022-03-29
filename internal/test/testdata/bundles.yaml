@@ -136,8 +136,6 @@ spec:
     cloudStack:
       clusterAPIController:
         uri: public.ecr.aws/j9l9l0k3/cluster-api-provider-capc:latest
-      kubeVip:
-        uri: public.ecr.aws/l0g8r8j6/plunder-app/kube-vip:v0.3.7-eks-a-v0.0.0-dev-build.158
       components:
         uri: https://dev-release-prod-pdx.s3.amazonaws.com/artifacts/v0.0.0-dev-build.1748/cluster-api-provider-cloudstack/manifests/infrastructure-cloudstack/v0.4.0-alpha/infrastructure-components.yaml
       metadata:
@@ -274,8 +272,6 @@ spec:
     cloudStack:
       clusterAPIController:
         uri: public.ecr.aws/j9l9l0k3/cluster-api-provider-capc:latest
-      kubeVip:
-        uri: public.ecr.aws/l0g8r8j6/plunder-app/kube-vip:v0.3.7-eks-a-v0.0.0-dev-build.158
       components:
         uri: https://dev-release-prod-pdx.s3.amazonaws.com/artifacts/v0.0.0-dev-build.1748/cluster-api-provider-cloudstack/manifests/infrastructure-cloudstack/v0.4.0-alpha/infrastructure-components.yaml
       metadata:
@@ -424,8 +420,6 @@ spec:
     cloudStack:
       clusterAPIController:
         uri: public.ecr.aws/j9l9l0k3/cluster-api-provider-capc:latest
-      kubeVip:
-        uri: public.ecr.aws/l0g8r8j6/plunder-app/kube-vip:v0.3.7-eks-a-v0.0.0-dev-build.158
       components:
         uri: https://dev-release-prod-pdx.s3.amazonaws.com/artifacts/v0.0.0-dev-build.1748/cluster-api-provider-cloudstack/manifests/infrastructure-cloudstack/v0.4.0-alpha/infrastructure-components.yaml
       metadata:
@@ -815,8 +809,6 @@ spec:
     cloudStack:
       clusterAPIController:
         uri: public.ecr.aws/j9l9l0k3/cluster-api-provider-capc:latest
-      kubeVip:
-        uri: public.ecr.aws/l0g8r8j6/plunder-app/kube-vip:v0.3.7-eks-a-v0.0.0-dev-build.158
       components:
         uri: https://dev-release-prod-pdx.s3.amazonaws.com/artifacts/v0.0.0-dev-build.1748/cluster-api-provider-cloudstack/manifests/infrastructure-cloudstack/v0.4.0-alpha/infrastructure-components.yaml
       metadata:
