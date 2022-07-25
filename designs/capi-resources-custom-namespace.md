@@ -19,6 +19,7 @@ This change would make it so customers would be able to put these resources virt
 * As a EKS-A cluster administrator I want to quickly and easily query resources for a given cluster so that I can more easily troubleshooting cluster issues with many workload clusters present
 * As an EKS-A cluster administrator, I want to be able to perform cluster upgrades without having to move all the cluster resources onto the bootstrap cluster
 * As a cluster administrator I'd like to be able to specify exactly which namespace the components go in (and have EKS-A stop me if I try to put it in default or kube-system)
+* As a cluster administrator, I would like to extend the OwnerRef chain to include my own higher level cluster resources which are built on top of the EKS-A Cluster resource. It's only possible to add OwnerRefs to resources within the same namespace. There is an inconsistency with allowing the eks-a cluster to be in any namespace so it should be possible to extend that to my own resources as well
 
 ### Statement of Scope
 
